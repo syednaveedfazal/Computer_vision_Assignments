@@ -5,11 +5,10 @@ Python 3.12, OpenCV 4.11, NumPy 2.3.3
 Image: bonn.jpeg
 """
 
-import cv2 as cv
+import cv2
 import numpy as np
 import random
 import time
-import os
 
 # ============================================================================
 # Exercise 1: Read and Display Image (0.5 Points)
@@ -21,16 +20,29 @@ def exercise1():
     """
     print("Exercise 1: Read and Display Image")
     
-    #I have used relative path to read the image else it won't work 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    img_path = os.path.join(script_dir, 'bonn.jpeg')
-    img = cv.imread("bonn.jpeg")
-    cv.imshow("Image", img)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    # img.shape provides the hight , width and channels of the image
-    print('Loaded image shape:', img.shape)
-    print('Loaded image dtype :', img.dtype)    
+    # TODO: Read the image 'bonn.jpeg' using cv2.imread()
+    img = cv2.imread("bonn.jpeg")
+    
+    # TODO: Check if image was loaded successfully
+    if img is None:
+        print("Could not load the image")
+        return None
+    # TODO: Display the image using cv2.imshow()
+    cv2.imshow("Bonn", img)
+
+    # TODO: Wait for a key press using cv2.waitKey(0)
+    cv2.waitKey(0)
+
+    # TODO: Close all windows using cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
+
+    # TODO: Print image dimensions (height, width, channels)
+    height, width, channels = img.shape
+    print(f"Image Dimensions: Height={height}, Width={width}, Channels={channels}")
+
+    # TODO: Print image data type
+    print(f"Image Data Type: {img.dtype}")
+    
     print("Exercise 1 completed!\n")
     return img
 
@@ -45,20 +57,26 @@ def exercise2(img):
     print("Exercise 2: HSV Color Space")
     
     # TODO: Convert to HSV using cv2.cvtColor() with cv2.COLOR_BGR2HSV
-    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
     # TODO: Split HSV into H, S, V channels using cv2.split()
-    h, s, v = cv.split(hsv)
+    # H: Hue, S: Saturation, V: Value
+    h, s, v = cv2.split(hsv)
     
     # TODO: Display all three channels
+    cv2.imshow("Hue Channel", h)
+    cv2.imshow("Saturation Channel", s)
+    cv2.imshow("Value Channel", v)
     # Hint: You can concatenate them horizontally using cv2.hconcat()
-    hsv_concat = cv.hconcat([h, s, v])
-    cv.imshow("HSV Channels (H | S | V)", hsv_concat)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+
+    hsv_channels = cv2.hconcat([h, s, v])
+    cv2.imshow("Hue, Saturation, and Value Channels", hsv_channels)
+
     
-   
-    
+    # Wait for key press
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
     print("Exercise 2 completed!\n")
     return hsv
 
@@ -77,18 +95,29 @@ def exercise3(img):
     result = img.copy()
     
     # TODO: Get image dimensions
-    x,y = result.shape[0],result.shape[1]
+    height, width, channels = img.shape
     
     # TODO: Use nested for-loops to iterate through each pixel, add 50 to pixel value, and clip pixel value to [0, 255]
-    for i in range(x):
-        for j in range(y):
-            for k in range(3): 
-                result[i,j,k] = min(result[i,j,k] + 50, 255)
+    for i in range(height):
+        for j in range(width):
+            for c in range(channels):
+                # Add 50 to the pixel value and ensure it's an integer
+                brightened_value = int(result[i, j, c]) + 50
+                
+                # Clip the value to stay within the [0, 255] range
+                if brightened_value > 255:
+                    result[i, j, c] = 255
+                else:
+                    result[i, j, c] = brightened_value
+
+
     # TODO: Display original and result side by side
-    concated_image = cv.hconcat([img,result])
-    cv.imshow("Original | Brightened", concated_image)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    # np.hstack places two images next to each other.
+    combined_image = np.hstack((img, result))
+    cv2.imshow('Original vs. Brightened', combined_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
     print("Exercise 3 completed!\n")
     return result
 
@@ -103,35 +132,47 @@ def exercise4(img):
     """
     print("Exercise 4: Vectorized Brightness Adjustment")
     
-    # Time the loop-based approach (copy of exercise3 loop)
-    # Make a copy so we don't modify the original
-    loop_img = img.copy()
+    # TODO: Time the loop-based approach (from exercise 3)
     start_time_loop = time.time()
-    loop_result = exercise3(loop_img)
+    # ... (implement or copy loop code)
+    result_loop = img.copy()
+    height, width, channels = img.shape
+    for i in range(height):
+        for j in range(width):
+            for c in range(channels):
+                # Add 50 and ensure the value is an integer
+                brightened_value = int(result_loop[i, j, c]) + 50
+                # Clip the value to stay within the [0, 255] range
+                if brightened_value > 255:
+                    result_loop[i, j, c] = 255
+                else:
+                    result_loop[i, j, c] = brightened_value
+
     end_time_loop = time.time()
-
-    # Time the vectorized approach
+    
+    # TODO: Time the vectorized approach
     start_time_vec = time.time()
-    # Use np.clip and ensure we operate in a type that won't overflow, then cast back to uint8
-    vec_result = np.clip(img.astype(np.int16) + 50, 0, 255).astype(np.uint8)
-    end_time_vec = time.time()
 
-    # Print execution times
+    # TODO: Add 50 and clip in one line using np.clip()
+    # np.clip function "clamps" all the values in the array to be within a specified range
+    # img.astype(np.int16) was used to prevent overflow during addition
+    # astype(np.uint8) was used to convert back to original data type so that image can be displayed correctly
+    result = np.clip(img.astype(np.int16) + 50, 0, 255).astype(np.uint8)
+
+    end_time_vec = time.time()
+    
+    # TODO: Print execution times
+    # .4f formats the float to 4 decimal places
     print(f"Loop-based approach: {end_time_loop - start_time_loop:.4f} seconds")
     print(f"Vectorized approach: {end_time_vec - start_time_vec:.4f} seconds")
-
-    # Display original, loop_result, and vec_result side by side
-    try:
-        combined = cv.hconcat([img,loop_result, vec_result])
-        cv.imshow("Original | Loop Brightened | Vectorized Brightened", combined)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-    except cv.error:
-        # In case the display fails (headless environment), just skip showing
-        print("Note: cv.imshow failed (possible headless environment). Skipping display.")
-
+    
+    # TODO: Display the result
+    cv2.imshow('Vectorized Brightened Image', result)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
     print("Exercise 4 completed!\n")
-    return vec_result
+    return result
 
 
 # ============================================================================
@@ -145,35 +186,46 @@ def exercise5(img):
     
     # TODO: Extract 32x32 patch from top-left corner (starting at 0,0)
     patch_size = 32
-    # Ensure the image is large enough
-    h, w = img.shape[0], img.shape[1]
-    if h < patch_size or w < patch_size:
-        print(f"Image too small for a {patch_size}x{patch_size} patch.")
-        return img
+    # img[0:patch_size, 0:patch_size] means rows 0 to 31 and columns 0 to 31
+    patch = img[0:patch_size, 0:patch_size]
 
-    # Extract patch from top-left corner
-    patch = img[0:patch_size, 0:patch_size].copy()
-
-    # Create a copy to paste onto
+    
+    # TODO: Create a copy of the image
     img_copy = img.copy()
+    
+    # TODO: Get image dimensions
+    # _ means we ignore the number of channels
+    height, width, _ = img.shape
 
-    # Generate 3 random locations and paste the patch
+    
+    
+    # TODO: Generate 3 random locations and paste the patch
+    # Use random.randint() and ensure patch fits within boundaries
     for i in range(3):
-        # Choose top-left corner (y, x) such that patch fits
-        max_y = h - patch_size
-        max_x = w - patch_size
-        y = random.randint(0, max_y)
-        x = random.randint(0, max_x)
-        img_copy[y:y+patch_size, x:x+patch_size] = patch
-    # Display the result
-    try:
-        cv.imshow("Patch Pasted", img_copy)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-    except cv.error:
-        print("Note: cv.imshow failed (possible headless environment). Skipping display.")
+        # Determine the valid range for the top-left corner of the patch
+        max_y = height - patch_size
+        max_x = width - patch_size
+        
+        # Generate random coordinates for the top-left corner of the paste location
+        rand_y = random.randint(0, max_y)
+        rand_x = random.randint(0, max_x)
+        
+        print(f"Pasting patch {i+1} at (y,x): ({rand_y}, {rand_x})")
+        
+        # Paste the patch onto the image copy
+        # rand_y : rand_y + patch_size means rows from rand_y to rand_y + 31
+        # rand_x : rand_x + patch_size means columns from rand_x to rand_x + 31
+        # This assigns the patch to the specified region in img_copy
+        img_copy[rand_y : rand_y + patch_size, rand_x : rand_x + patch_size] = patch
+    
+    # TODO: Display the result
+    cv2.imshow('Image with Patches', img_copy)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
+    
     print("Exercise 5 completed!\n")
+
     return img_copy
 
 
@@ -188,27 +240,36 @@ def exercise6(img):
     print("Exercise 6: Binary Masking")
     
     # TODO: Convert to grayscale using cv2.cvtColor() with cv2.COLOR_BGR2GRAY
-    gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
     # TODO: Apply binary threshold at value 128
     # Use cv2.threshold() with cv2.THRESH_BINARY
-    _, mask = cv.threshold(gray, 128, 255, cv.THRESH_BINARY)
+    # cv2.THRESH_BINARY means pixels above the threshold are set to max value (255), below to 0
+    # _ is used to ignore the first return value (threshold used)
+    # mask: pixels above 128 are set to 255, below to 0
+    _, mask = cv2.threshold(gray, 128, 255, cv2.THRESH_BINARY)
     
     # TODO: Apply mask to original color image
     # Hint: Use cv2.bitwise_and() with the mask
-    masked = cv.bitwise_and(img, img, mask=mask)
+    # where mask is 255, original pixel is kept; where mask is 0, pixel becomes black
+    masked = cv2.bitwise_and(img, img, mask=mask)
     
     # TODO: Display original, mask, and masked result
-    try:
-        mask_bgr = cv.cvtColor(mask, cv.COLOR_GRAY2BGR)  # Convert mask to BGR for concatenation
-        combined = cv.hconcat([img,  masked])
-        cv.imshow("Original | Mask | Masked Result", combined)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-    except cv.error:
-        print("Note: cv.imshow failed (possible headless environment). Skipping display.")
+    # To display them side-by-side, they must have the same number of channels.
+    # We convert the single-channel mask to a 3-channel BGR image.
+    mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
     
+    # Concatenate the images horizontally for a combined view
+    combined_display = np.hstack((img, mask_bgr, masked))
+    
+
+    cv2.imshow('Original, Mask, Masked Result', combined_display)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
     print("Exercise 6 completed!\n")
+
+    return masked, mask
 
 
 # ============================================================================
@@ -223,45 +284,68 @@ def exercise7(img):
     # TODO: Add 20-pixel border using cv2.copyMakeBorder()
     # Use cv2.BORDER_CONSTANT with a color of your choice
     border_size = 20
-    border_color = (50, 200, 50)  # BGR
-    bordered = cv.copyMakeBorder(img, border_size, border_size, border_size, border_size,
-                                 cv.BORDER_CONSTANT, value=border_color)
 
-    # Get dimensions of bordered image
-    h, w = bordered.shape[0], bordered.shape[1]
+    border_color = [255, 0, 0]  # Blue in BGR
+    bordered_image = cv2.copyMakeBorder(
+        img, 
+        top=border_size, 
+        bottom=border_size, 
+        left=border_size, 
+        right=border_size, 
+        borderType=cv2.BORDER_CONSTANT, 
+        value=border_color
+    )
 
-    # Draw 5 random circles
+    
+    # TODO: Get dimensions of bordered image
+    height, width, _ = bordered_image.shape
+    
+    # TODO: Draw 5 random circles
+    # Use random.randint() and cv2.circle(img, center, radius, color, thickness)
     for i in range(5):
-        center_x = random.randint(border_size, w - border_size - 1)
-        center_y = random.randint(border_size, h - border_size - 1)
-        radius = random.randint(5, min(50, min(w, h)//10))
-        color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
-        thickness = random.randint(1, 4)
-        cv.circle(bordered, (center_x, center_y), radius, color, thickness)
+        # Defining random properties for the circle
+        radius = random.randint(10, 50)
+        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        thickness = 2
+        
+        # Generate a center point ensuring the circle is fully within the image
+        # The center's x must be between radius and width-radius
+        # The center's y must be between radius and height-radius
+        center_x = random.randint(radius, width - radius)
+        center_y = random.randint(radius, height - radius)
+        center = (center_x, center_y)
 
-    # Add 5 random text labels
-    font = cv.FONT_HERSHEY_SIMPLEX
+        # Draw the circle on the bordered image
+        cv2.circle(bordered_image, center, radius, color, thickness)
+    
+    # TODO: Add 5 random text labels
+    # Use random.randint() and cv2.putText(img, text, org, font, fontScale, color, thickness)
     for i in range(5):
-        text = f"P{i+1}"
-        org_x = random.randint(border_size, w - border_size - 60)
-        org_y = random.randint(border_size + 10, h - border_size - 10)
-        font_scale = round(random.uniform(0.5, 1.2), 2)
-        color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
-        thickness = random.randint(1, 2)
-        cv.putText(bordered, text, (org_x, org_y), font, font_scale, color, thickness, cv.LINE_AA)
+        # Define random properties for the text
+        text = f"Hello {i+1}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.7
+        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        thickness = 2
 
-    # Display the result
-    try:
-        cv.imshow("Bordered & Annotated", bordered)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-    except cv.error:
-        print("Note: cv.imshow failed (possible headless environment). Skipping display.")
+        # Generate the origin (bottom-left corner of the text)
+        # Ensure the text doesn't run off the screen
+        org_x = random.randint(10, width - 200) # Leave space for text width
+        org_y = random.randint(30, height - 30) # Leave space for text height
+        org = (org_x, org_y)
+        
+        # Draw the text on the bordered image (in-place)
+        cv2.putText(bordered_image, text, org, font, font_scale, color, thickness)
 
+    
+    # TODO: Display the result
+    cv2.imshow('Image with Border and Annotations', bordered_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    
     print("Exercise 7 completed!\n")
-    return bordered
-    
-    
+    return bordered_image
 
 
 # ============================================================================
@@ -275,9 +359,10 @@ def main():
     print("Exercise 0: Introduction to OpenCV")
     print("=" * 60 + "\n")
     
+    # Uncomment the exercises you want to run:
     img = exercise1()
-    if img is None:
-        return
+    # if img is None:
+    #     return
     exercise2(img)
     exercise3(img)
     exercise4(img)
