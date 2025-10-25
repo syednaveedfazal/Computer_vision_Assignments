@@ -272,7 +272,7 @@ def run_optimization(original_img, noisy_img):
 
     # 1. Gaussian optimization
     print("Optimizing Gaussian Filter...")
-    kernel_sizes_gauss = [3, 5, 7,8,9]
+    kernel_sizes_gauss = [3, 5, 7, 9]
     sigmas = [0.5, 1.0, 1.5, 2.0,3.0,4.0]
     for k in kernel_sizes_gauss:
         for s in sigmas:
