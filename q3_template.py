@@ -120,7 +120,7 @@ end_time_integral = time.perf_counter()
 total_time_integral = end_time_integral - start_time_integral
 avg_time_integral = total_time_integral / iterations
 
-# 1. & 2. Benchmark the Direct Summation method
+#  Benchmark the Direct Summation method
 start_time_direct = time.perf_counter()
 for _ in range(iterations):
     _ = mean_by_direct_sum(gray_img, top_left, bottom_right)

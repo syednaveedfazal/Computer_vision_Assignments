@@ -2,16 +2,17 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ==============================================================================
-# Helper Function to Analyze Kernels
-# ==============================================================================
-
+# i have written a helper function to analyze the kernel
 def analyze_kernel(K):
     """
     Performs SVD on a kernel and returns its components and separability status.
     """
     K_float = K.astype(np.float32)
+    # svd decomposition using cv2 it return w, u, vt
     w, u, vt = cv2.SVDecomp(K_float)
+    # i have set a tolerance to check for separability
+    # i have used 1e^6 as tolerance because the singular values are very small in our kernels
+    # we have to check if the second singular values is less than tolerance to consider it as separable 
     tolerance = 1e-6
     is_separable = w[1][0] < tolerance if len(w) > 1 else True
     return is_separable, w, u, vt
@@ -20,7 +21,7 @@ def analyze_kernel(K):
 # Main Script
 # ==============================================================================
 
-# 1. Define all kernels to be tested
+# i have defined two kernels as given in question as a dictionary
 kernels = {
     "Kernel 1": np.array([
         [0.0113, 0.0838, 0.0113],
@@ -34,7 +35,7 @@ kernels = {
     ])
 }
 
-# 2. Load the image that will be used for filtering
+#  Load the image that will be used for filtering
 try:
     img_color = cv2.imread('bonn.jpg')
     img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
@@ -43,13 +44,13 @@ except Exception as e:
     print(f"Fatal Error: Could not load 'bonn.jpg'. Please ensure it's in the correct directory.")
     exit()
 
-# 3. Loop through each kernel, analyze it, and act accordingly
+# Loop through each kernel and analyze it  and act accordingly
 for kernel_name, K_original in kernels.items():
     print(f"--- Analyzing {kernel_name} ---")
     
     is_separable, w, u, vt = analyze_kernel(K_original)
 
-    # --- Check if the kernel is separable ---
+    # Check if the kernel is separable 
     if is_separable:
         print(f"Result: {kernel_name} IS separable. Skipping approximation steps.")
         print("-" * 40 + "\n")
@@ -64,10 +65,11 @@ for kernel_name, K_original in kernels.items():
     first_singular_value = w[0][0]
     first_u_column = u[:, 0]
     first_vt_row = vt[0, :]
+    print(first_singular_value, first_u_column, first_vt_row , 'Values for approximation')
     K_approximated_2D = first_singular_value * (first_u_column.reshape(-1, 1) @ first_vt_row.reshape(1, -1))
     print("Approximated 2D Kernel:\n", K_approximated_2D)
 
-    # 5. Filter the image with both the original and approximated kernels
+    # Filter the image with both the original and approximated kernels
     print("\nFiltering image...")
     filtered_original = cv2.filter2D(img_gray_float, -1, K_original)
     
@@ -76,9 +78,6 @@ for kernel_name, K_original in kernels.items():
     row_vector_sep = s_sqrt * first_vt_row
     filtered_approximated = cv2.sepFilter2D(img_gray_float, -1, row_vector_sep, col_vector_sep)
     
-    # ==============================================================================
-    # 6. (NEW) Compute and Print the Pixel-wise Error
-    # ==============================================================================
     print("\nComputing the difference between the two filtered results...")
 
     # Calculate the absolute difference between the two images, pixel by pixel.
@@ -90,12 +89,10 @@ for kernel_name, K_original in kernels.items():
 
     print(f"\n>>> The MAXIMUM PIXEL-WISE ERROR introduced by the approximation is: {max_pixel_error:.6f}")
     
-    # ==============================================================================
-    
-    # 7. Display all the results, including the new difference image
+
     print("\nDisplaying comparison...")
     
-    # We'll use a 2x2 grid to show everything
+    # i'm  using a 2x2 grid to show everything
     plt.figure(figsize=(12, 10))
 
     plt.subplot(2, 2, 1)

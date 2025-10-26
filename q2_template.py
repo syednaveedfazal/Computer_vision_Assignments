@@ -99,6 +99,7 @@ def custom_bilateral_filter(image, d, sigma_color, sigma_space):
     
     # Pre-calculate the spatial Gaussian kernel
     x, y = np.mgrid[-pad_size:pad_size + 1, -pad_size:pad_size + 1]
+    
     spatial_kernel = np.exp(-(x**2 + y**2) / (2 * sigma_space**2))
     
     for i in range(image.shape[0]):
@@ -106,11 +107,11 @@ def custom_bilateral_filter(image, d, sigma_color, sigma_space):
             window = padded_image[i:i + d, j:j + d]
             center_pixel_intensity = window[pad_size, pad_size]
             
-            # Calculate the intensity (range) kernel
+            # this creates a range kernel based on intensity differnces 
             intensity_diff = window - center_pixel_intensity
             range_kernel = np.exp(-(intensity_diff**2) / (2 * sigma_color**2))
             
-            # Combine kernels and normalize
+            # Combine kernels and normalize so that it sum up to 1
             combined_kernel = spatial_kernel * range_kernel
             weights_sum = np.sum(combined_kernel)
             
@@ -208,13 +209,7 @@ print(f"PSNR (Bilateral Custom): {psnr_bilateral_custom:.2f} dB")
 # 2. Performance Comparison (Part d)
 # ==============================================================================
 print("\n--- d) Performance Comparison ---")
-'''
-TODO:
-1. Compare PSNR values of all three filters
-2. Determine which filter performs best
-3. Display side-by-side comparison of all filtered images
-4. Print the results with the best performing filter highlighted
-'''
+
 psnr_results = {
     'Gaussian CV2': psnr_gaussian_cv2,
     'Gaussian Custom':psnr_gaussian_custom,
@@ -264,6 +259,7 @@ def run_optimization(original_img, noisy_img):
     """
     Optimize parameters for all three filters to maximize PSNR by performing a grid search.
     """
+    # basically i have created a dict os that based on filter name i can get best psnr and prams too
     results = {
         "gaussian": {"best_psnr": -1, "params": {}},
         "median": {"best_psnr": -1, "params": {}},
