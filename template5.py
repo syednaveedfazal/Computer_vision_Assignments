@@ -22,32 +22,66 @@ def gaussian_smoothing(img, sigma):
 
 def compute_gradients(img):
     """
-    Compute gradient magnitude and direction (Sobel-based).
-    Return gradient_magnitude, gradient_angle.
+    Compute gradient magnitude and direction using manual Sobel convolution.
+
+    This implementation is based on the formulas shown in the image:
+    - Gx and Gy are calculated by convolving the image with Sobel kernels.
+    - Magnitude M(x,y) = sqrt(gx^2 + gy^2)
+    - Phase/Angle α(x,y) = arctan(gy / gx)
+
+    This function does not use the cv2 library.
+
+    Args:
+        img: A 2D numpy array representing the grayscale image.
+
+    Returns:
+        A tuple containing:
+        - gradient_magnitude (np.ndarray): The gradient magnitude, normalized to 0-255.
+        - gradient_angle (np.ndarray): The gradient direction in radians (-pi to +pi).
     """
 
+    # Define the 3x3 Sobel kernels for approximating derivatives in x and y
+    Kx = np.array([[-1, 0, 1], 
+                   [-2, 0, 2], 
+                   [-1, 0, 1]])
+                   
+    Ky = np.array([[-1, -2, -1],
+                   [ 0,  0,  0],
+                   [ 1,  2,  1]])
 
-    sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
-
-    # Calculate the vertical gradient (Gy)
-    # dx=0, dy=1 specifies a first-order derivative in the y-direction.
-    # The kernel used is equivalent to:
-    # K_Gy = [[-1, -2, -1],
-    #         [ 0,  0,  0],
-    #         [ 1,  2,  1]]
-    sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
-
-    # Use L1 norm (|Gx| + |Gy|) to match cv2.Canny's default behavior
-    gradient_magnitude = np.abs(sobelx) + np.abs(sobely)
+    # Get the dimensions of the input image
+    height, width = img.shape
     
-    # Normalize magnitude to a 0-255 scale for easier processing later,
-    # converting it back to an 8-bit unsigned integer type.
-    gradient_magnitude = (gradient_magnitude / gradient_magnitude.max()) * 255
-    gradient_magnitude = gradient_magnitude.astype(np.uint8)
+    # Initialize arrays to store the gradients in x and y directions
+    sobelx = np.zeros_like(img, dtype=np.float64)
+    sobely = np.zeros_like(img, dtype=np.float64)
 
-    # Calculate the Gradient Direction
-    # We use arctan2(Gy, Gx) which handles all quadrants correctly and avoids
-    # division by zero. The result is in radians, ranging from -pi to +pi.
+    # Manually convolve the image with the Sobel kernels
+    # We iterate over each pixel, ignoring a 1-pixel border to handle the kernel size
+    for i in range(1, height - 1):
+        for j in range(1, width - 1):
+            # Select a 3x3 neighborhood of pixels
+            neighborhood = img[i-1:i+2, j-1:j+2]
+            
+            # Compute the gradient in the x-direction (gx)
+            gx = np.sum(neighborhood * Kx)
+            sobelx[i, j] = gx
+            
+            # Compute the gradient in the y-direction (gy)
+            gy = np.sum(neighborhood * Ky)
+            sobely[i, j] = gy
+
+    # Calculate the gradient magnitude using the formula from the image (L2 Norm)
+    gradient_magnitude = np.sqrt(sobelx**2 + sobely**2)
+    
+    # Normalize the magnitude to a 0-255 scale for easier processing later.
+    if gradient_magnitude.max() > 0:
+        gradient_magnitude = (gradient_magnitude / gradient_magnitude.max()) * 255
+
+    # Calculate the gradient angle.
+    # We use arctan2(gy, gx) as it correctly handles all quadrants and
+    # avoids division-by-zero errors, which is a robust implementation
+    # of the formula α = tan⁻¹(gy/gx).
     gradient_angle = np.arctan2(sobely, sobelx)
 
     return gradient_magnitude, gradient_angle
@@ -59,28 +93,62 @@ def nonmax_suppression(mag, ang):
     """
     # Get the dimensions of the input images
     height, width = mag.shape
-    suppressed_img = np.zeros_like(mag, dtype=np.float32)
-    ang[ang < 0] += np.pi  # Map all angles to [0, pi]
-
+    
+    # Initialize an output image of the same size with zeros
+    suppressed_img = np.zeros_like(mag, dtype=mag.dtype)
+    
+    # Convert angles from radians to degrees for easier quantization.
+    # We map all angles to the range [0, 180) because opposite directions
+    # (e.g., 10° and 190°) lie on the same line.
+    angles_deg = np.degrees(ang)
+    # np.degrees returns angles in the range [-180, 180].
+    angles_deg[angles_deg < 0] += 180
+    # Here, angles are now in [0, 180).
+    
+    # Iterate over each pixel, ignoring the 1-pixel border to ensure
+    # all neighbors are within bounds.
     for i in range(1, height - 1):
         for j in range(1, width - 1):
-            angle = ang[i, j]
+            
+            angle = angles_deg[i, j]
+            current_mag = mag[i, j]
 
-            # Horizontal gradient (vertical edge)
-            if (0 <= angle < np.pi / 4) or (3 * np.pi / 4 <= angle <= np.pi):
-                t = np.abs(np.tan(angle))
-                p1 = (1 - t) * mag[i, j + 1] + t * mag[i - 1, j + 1]
-                p2 = (1 - t) * mag[i, j - 1] + t * mag[i + 1, j - 1]
-            # Vertical gradient (horizontal edge)
+            # --- Quantize the angle to one of 4 directions ---
+            
+            # Direction 1: Horizontal edge (gradient is vertical)
+            # Check neighbors above and below.
+            if (67.5 <= angle < 112.5):
+                neighbor1 = mag[i - 1, j]
+                neighbor2 = mag[i + 1, j]
+            
+            # Direction 2: +45° diagonal edge (gradient is at 135°)
+            # Check neighbors at top-right and bottom-left.
+            elif (112.5 <= angle < 157.5):
+                neighbor1 = mag[i - 1, j + 1]
+                neighbor2 = mag[i + 1, j - 1]
+            
+            # Direction 3: -45° diagonal edge (gradient is at 45°)
+            # Check neighbors at top-left and bottom-right.
+            elif (22.5 <= angle < 67.5):
+                neighbor1 = mag[i - 1, j - 1]
+                neighbor2 = mag[i + 1, j + 1]
+            
+            # Direction 0: Vertical edge (gradient is horizontal)
+            # Check neighbors to the left and right.
+            # This covers angles from [0, 22.5) and [157.5, 180].
             else:
-                t = np.abs(1 / np.tan(angle))
-                p1 = (1 - t) * mag[i - 1, j] + t * mag[i - 1, j + 1]
-                p2 = (1 - t) * mag[i + 1, j] + t * mag[i + 1, j - 1]
+                neighbor1 = mag[i, j - 1]
+                neighbor2 = mag[i, j + 1]
 
-            if mag[i, j] >= p1 and mag[i, j] >= p2:
-                suppressed_img[i, j] = mag[i, j]
+            # --- Perform the suppression check ---
+            # If the current pixel's magnitude is greater than its neighbors
+            # along the gradient direction, keep it. Otherwise, suppress it.
+            if current_mag > neighbor1 and current_mag > neighbor2:
+                suppressed_img[i, j] = current_mag
+            else:
+                suppressed_img[i, j] = 0
                 
-    return suppressed_img.astype(np.uint8)
+    return suppressed_img
 
 
 def double_threshold(nms, low, high):
@@ -101,7 +169,7 @@ def double_threshold(nms, low, high):
     classified_map = np.zeros((height, width), dtype=np.uint8)
 
     # Find the coordinates (indices) of pixels that fall into each category.
-    strong_i, strong_j = np.where(nms >= high)
+    strong_i, strong_j = np.where(nms >= high) 
     weak_i, weak_j = np.where((nms < high) & (nms >= low))
     
     # 3. Set the corresponding pixel values (labels) in our classified map.
@@ -118,32 +186,42 @@ def hysteresis(edge_map, weak, strong):
     """
 
 
-    height, width = edge_map.shape
-    
-    # The recursive function that traces and promotes connected weak pixels.
-    def trace_and_promote(i, j):
-        # Iterate over the 8-connected neighborhood of the pixel (i, j).
-        for x in range(max(0, i-1), min(height, i+2)):
-            for y in range(max(0, j-1), min(width, j+2)):
-                # If a neighbor is a weak pixel...
-                if edge_map[x, y] == weak:
-                    # ...promote it to a strong pixel...
-                    edge_map[x, y] = strong
-                    # ...and continue the trace from this new strong pixel.
-                    trace_and_promote(x, y)
+    high_threshold = edge_map.max() * 0.09
+    low_threshold = high_threshold * 0.05
 
-    # The main loop iterates through every pixel of the classified map.
-    for i in range(height):
-        for j in range(width):
-            # If a pixel is identified as a strong pixel, start the tracking.
-            if edge_map[i, j] == strong:
-                trace_and_promote(i, j)
-    
-    # After tracing, create the final binary map.
-    # Any pixel that is not 'strong' is suppressed.
-    final_edge_map = np.zeros_like(edge_map)
-    final_edge_map[edge_map == strong] = 255  # Set final edge pixels to white.
-    
+    # Get the dimensions of the input image
+    height, width = edge_map.shape
+
+    # Create a new array to store the final edge map
+    final_edge_map = np.zeros((height, width), dtype=np.uint8)
+
+    # Define constants for weak and strong pixels for clarity
+    WEAK_PIXEL = 75
+    STRONG_PIXEL = 255
+
+    # --- Step 1: Initial Classification ---
+    # Identify strong pixels (above high threshold)
+    strong_i, strong_j = np.where(edge_map >= high_threshold)
+    final_edge_map[strong_i, strong_j] = STRONG_PIXEL
+
+    # Identify weak pixels (between low and high thresholds)
+    weak_i, weak_j = np.where((edge_map >= low_threshold) & (edge_map < high_threshold))
+    final_edge_map[weak_i, weak_j] = WEAK_PIXEL
+
+    # --- Step 2: Edge Tracking by Hysteresis ---
+    # The image illustrates that a weak pixel (center) is promoted to a strong one
+    # if it is connected to a strong pixel. We iterate through the image and check
+    # the 8-pixel neighborhood of each weak pixel.
+    for i in range(1, height - 1):
+        for j in range(1, width - 1):
+            if final_edge_map[i, j] == WEAK_PIXEL:
+                # Check the 3x3 neighborhood for any strong pixels
+                if np.any(final_edge_map[i-1:i+2, j-1:j+2] == STRONG_PIXEL):
+                    final_edge_map[i, j] = STRONG_PIXEL
+                else:
+                    # If no strong pixel is found in the neighborhood, suppress this weak pixel
+                    final_edge_map[i, j] = 0
+
     return final_edge_map
 
 
@@ -220,9 +298,9 @@ def plot_results(images, labels, figsize=(15, 10), cols=3):
 
 
 
-SIGMA = 0.3
-LOW_THRESHOLD_RATIO = 0.1
-HIGH_THRESHOLD_RATIO = 0.15
+SIGMA = 0.4
+LOW_THRESHOLD_RATIO = 0.3
+HIGH_THRESHOLD_RATIO = 0.9
 
 
 
@@ -248,7 +326,7 @@ smoothed_image = gaussian_smoothing(original_image, SIGMA)
 gradient_magnitude, gradient_angle = compute_gradients(smoothed_image)
 
 
-# cv2.imshow('Gradient Magnitude', gradient_magnitude)
+# cv2.imshow('Gradient Magnitude', gradient_angle)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 
@@ -262,6 +340,8 @@ suppressed_image = nonmax_suppression(gradient_magnitude, gradient_angle)
 # TODO: 5. Apply double threshold (choose suitable low/high values)
 high_threshold = original_image.max() * HIGH_THRESHOLD_RATIO
 low_threshold = high_threshold * LOW_THRESHOLD_RATIO
+
+
 
 
 classified_image, weak_val, strong_val = double_threshold(suppressed_image, low_threshold, high_threshold)  
@@ -284,8 +364,6 @@ f1, mad = compute_metrics(manual_edges, opencv_canny_edges)
 print("\n--- Comparison Metrics ---")
 print(f"Mean Absolute Difference (MAD): {mad:.4f}")
 print(f"F1-Score: {f1:.4f}")
-print("\nNote: MAD represents the average per-pixel difference (0=identical, 1=completely different).")
-print("F1-Score is the harmonic mean of precision and recall (closer to 1 is better).")
 
 
 # TODO: 8. Display original image, your edges, and OpenCV edges
@@ -310,7 +388,3 @@ plot_results(
     figsize=(12, 6),
     cols=2
 )
-
-
-
-
