@@ -148,7 +148,7 @@ plt.show()
 mask = benchmark_map > 0
 
 mae = compute_mae(manual_ncc_map, benchmark_map, mask)
-print(f"\nMean Absolute Error (MAE) between manual map and benchmark: {mae:.4f} pixels")
+print(f"\nMean Absolute Error (MAE) between manual map and benchmark: {mae:.2f} pixels")
 
 
 mae_threshold = 0.7
@@ -156,5 +156,5 @@ mae_threshold = 0.7
 if mae < mae_threshold:
     print(f"Success! The MAE is below the threshold of {mae_threshold}.")
 else:
-    print(f"The MAE is above the threshold of {mae_threshold}. Further optimization may be needed.")
+    print(f"The MAE is above the threshold of {mae_threshold}")
 
